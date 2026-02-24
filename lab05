@@ -1,0 +1,87 @@
+import hashlib
+import base64
+
+class SimpleCipher:
+    """Простий симетричний шифр на основі XOR"""
+    
+    def __init__(self):
+        self.key = None
+    
+    def generate_key(self, personal_data):
+        """Генерація ключа з персональних даних"""
+        key_str = f"{personal_data['email']}{personal_data['name']}{personal_data['birth']}"
+        self.key = hashlib.sha256(key_str.encode()).digest()
+        print(f"Ключ згенеровано")
+        return self.key
+    
+    def encrypt(self, message):
+        """Шифрування повідомлення"""
+        if not self.key:
+            raise ValueError("Ключ не згенеровано")
+        
+        message_bytes = message.encode('utf-8')
+        expanded_key = self.expand_key(len(message_bytes))
+        encrypted = bytes([m ^ k for m, k in zip(message_bytes, expanded_key)])
+        return base64.b64encode(encrypted).decode()
+    
+    def decrypt(self, encrypted_message):
+        """Розшифрування повідомлення"""
+        if not self.key:
+            raise ValueError("Ключ не згенеровано")
+        
+        encrypted_bytes = base64.b64decode(encrypted_message)
+        expanded_key = self.expand_key(len(encrypted_bytes))
+        decrypted = bytes([e ^ k for e, k in zip(encrypted_bytes, expanded_key)])
+        return decrypted.decode('utf-8')
+    
+    def expand_key(self, length):
+        """Розширення ключа до потрібної довжини"""
+        expanded = b''
+        while len(expanded) < length:
+            expanded += self.key
+        return expanded[:length]
+
+
+def main():
+    print("=" * 60)
+    print("ЗАХИЩЕНИЙ ОБМІН ПОВІДОМЛЕННЯМИ")
+    print("Симетричне шифрування")
+    print("=" * 60)
+    
+    # Вводимо дані для спільного ключа
+    print("\n--- Дані для генерації спільного ключа ---")
+    email = input("Email: ")
+    name = input("Ім'я: ")
+    birth = input("Дата народження: ")
+    
+    personal_data = {
+        'email': email,
+        'name': name,
+        'birth': birth
+    }
+    
+    # Створюємо шифрувальник
+    cipher = SimpleCipher()
+    cipher.generate_key(personal_data)
+    
+    # Повідомлення
+    message = input("\nВведіть повідомлення: ")
+    print(f"\nОригінал: {message}")
+    
+    # Шифрування
+    encrypted = cipher.encrypt(message)
+    print(f"Зашифровано: {encrypted}")
+    
+    # Розшифрування
+    decrypted = cipher.decrypt(encrypted)
+    print(f"Розшифровано: {decrypted}")
+    
+    # Перевірка
+    if message == decrypted:
+        print("\n✓ Успіх! Повідомлення зашифровано і розшифровано правильно")
+    else:
+        print("\n✗ Помилка!")
+
+
+if __name__ == "__main__":
+    main()

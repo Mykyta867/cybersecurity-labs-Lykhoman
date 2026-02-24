@@ -1,0 +1,215 @@
+import os
+import time
+import hashlib
+import base64
+
+# ==================== МЕТОД 1: ШИФРУВАННЯ ====================
+
+class Cipher:
+    def __init__(self, personal_data):
+        key_str = f"{personal_data['name']}{personal_data['birth']}{personal_data['secret']}"
+        self.key = hashlib.sha256(key_str.encode()).digest()
+    
+    def encrypt(self, data):
+        result = bytearray()
+        for i, byte in enumerate(data):
+            result.append(byte ^ self.key[i % len(self.key)])
+        return bytes(result)
+    
+    def decrypt(self, data):
+        return self.encrypt(data)
+
+# ==================== МЕТОД 2: СТЕГАНОГРАФІЯ ====================
+
+class Steganography:
+    def __init__(self):
+        self.START_MARKER = "1111111111111110"
+    
+    def text_to_bits(self, text):
+        bits = ''
+        for char in text:
+            bits += format(ord(char), '016b')
+        return bits
+    
+    def bits_to_text(self, bits):
+        text = ''
+        for i in range(0, len(bits), 16):
+            if i + 16 <= len(bits):
+                text += chr(int(bits[i:i+16], 2))
+        return text
+    
+    def read_pixels(self, filename):
+        with open(filename, 'r') as f:
+            f.readline()
+            line = f.readline().strip()
+            while line.startswith('#'):
+                line = f.readline().strip()
+            f.readline()
+            pixels = []
+            for line in f:
+                for val in line.split():
+                    if val:
+                        pixels.append(int(val))
+            return pixels
+    
+    def write_pixels(self, filename, pixels, width=100, height=100):
+        with open(filename, 'w') as f:
+            f.write("P3\n")
+            f.write(f"{width} {height}\n")
+            f.write("255\n")
+            for i in range(0, len(pixels), 3):
+                f.write(f"{pixels[i]} {pixels[i+1]} {pixels[i+2]} ")
+                if (i // 3) % 5 == 0:
+                    f.write("\n")
+    
+    def hide_data(self, image_path, data, output_path):
+        if isinstance(data, bytes):
+            data = base64.b64encode(data).decode()
+        data_bits = self.text_to_bits(data)
+        full_data = self.START_MARKER + data_bits
+        pixels = self.read_pixels(image_path)
+        modified = pixels.copy()
+        for i in range(len(full_data)):
+            modified[i] = (pixels[i] & 0xFE) | int(full_data[i])
+        self.write_pixels(output_path, modified)
+        return True
+    
+    def extract_data(self, image_path):
+        pixels = self.read_pixels(image_path)
+        bits = ''
+        for p in pixels[:2000]:
+            bits += str(p & 1)
+        start = bits.find(self.START_MARKER)
+        if start == -1:
+            return None
+        data_start = start + len(self.START_MARKER)
+        data_bits = bits[data_start:]
+        data = self.bits_to_text(data_bits)
+        try:
+            return base64.b64decode(data)
+        except:
+            return data.encode()
+
+# ==================== СТВОРЕННЯ ЗОБРАЖЕННЯ ====================
+
+def create_test_image(filename, width=100, height=100):
+    with open(filename, 'w') as f:
+        f.write("P3\n")
+        f.write(f"{width} {height}\n")
+        f.write("255\n")
+        for y in range(height):
+            for x in range(width):
+                f.write(f"{x%256} {y%256} 128 ")
+            f.write("\n")
+
+# ==================== АНАЛІТИКА ====================
+
+class Analytics:
+    def __init__(self):
+        self.steps = []
+    
+    def add_step(self, name, input_size, output_size, duration):
+        self.steps.append({
+            'name': name,
+            'input_size': input_size,
+            'output_size': output_size,
+            'duration': duration
+        })
+    
+    def print_report(self):
+        print("\n" + "=" * 50)
+        print("ЗВІТ")
+        print("=" * 50)
+        total_time = 0
+        for step in self.steps:
+            print(f"{step['name']}: {step['duration']:.4f} сек, "
+                  f"розмір: {step['input_size']}->{step['output_size']} байт")
+            total_time += step['duration']
+        print(f"Загальний час: {total_time:.4f} сек")
+        print("=" * 50)
+
+# ==================== КОМПЛЕКСНА СИСТЕМА ====================
+
+class ProtectionSystem:
+    def __init__(self, personal_data):
+        self.cipher = Cipher(personal_data)
+        self.stego = Steganography()
+        self.analytics = Analytics()
+    
+    def protect(self, input_file, output_image):
+        print("\n--- ЕТАП 1: ШИФРУВАННЯ ---")
+        with open(input_file, 'rb') as f:
+            data = f.read()
+        start = time.time()
+        encrypted = self.cipher.encrypt(data)
+        duration = time.time() - start
+        self.analytics.add_step("Шифрування", len(data), len(encrypted), duration)
+        print(f"Час: {duration:.4f} сек")
+        
+        print("\n--- ЕТАП 2: СТЕГАНОГРАФІЯ ---")
+        if not os.path.exists("image.ppm"):
+            create_test_image("image.ppm")
+        start = time.time()
+        self.stego.hide_data("image.ppm", encrypted, output_image)
+        duration = time.time() - start
+        img_size = os.path.getsize(output_image)
+        self.analytics.add_step("Стеганографія", len(encrypted), img_size, duration)
+        print(f"Час: {duration:.4f} сек")
+        
+        print(f"\nЗахищено: {output_image}")
+    
+    def restore(self, protected_image, output_file):
+        print("\n--- ЕТАП 1: ВИТЯГУВАННЯ ---")
+        start = time.time()
+        extracted = self.stego.extract_data(protected_image)
+        duration = time.time() - start
+        print(f"Час: {duration:.4f} сек")
+        
+        print("\n--- ЕТАП 2: РОЗШИФРУВАННЯ ---")
+        start = time.time()
+        decrypted = self.cipher.decrypt(extracted)
+        duration = time.time() - start
+        print(f"Час: {duration:.4f} сек")
+        
+        with open(output_file, 'wb') as f:
+            f.write(decrypted)
+        print(f"\nВідновлено: {output_file}")
+        return decrypted
+    
+    def verify(self, original, restored):
+        with open(original, 'rb') as f1, open(restored, 'rb') as f2:
+            if f1.read() == f2.read():
+                print("\nФайли ідентичні")
+                return True
+            else:
+                print("\nФайли відрізняються")
+                return False
+
+def main():
+    print("=" * 60)
+    print("ДВОЕТАПНИЙ ЗАХИСТ")
+    print("=" * 60)
+    
+    name = input("ПІБ: ")
+    birth = input("Дата народження: ")
+    secret = input("Секретне слово: ")
+    
+    personal_data = {'name': name, 'birth': birth, 'secret': secret}
+    
+    test_file = "data.txt"
+    with open(test_file, 'w') as f:
+        f.write(f"ПІБ: {name}\nГрупа: 6.04.121.010.22.2\nДата: {birth}")
+    
+    print(f"\nФайл: {test_file} ({os.path.getsize(test_file)} байт)")
+    
+    system = ProtectionSystem(personal_data)
+    protected = "protected.ppm"
+    restored = "restored.txt"
+    
+    system.protect(test_file, protected)
+    system.restore(protected, restored)
+    system.verify(test_file, restored)
+    system.analytics.print_report()
+
+if __name__ == "__main__":
+    main()

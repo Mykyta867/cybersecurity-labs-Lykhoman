@@ -1,0 +1,195 @@
+import os
+
+class Steganography:
+    """Стеганографія в зображеннях методом LSB"""
+    
+    def __init__(self):
+        self.START_MARKER = "1111111111111110"  # 16 біт
+    
+    def text_to_bits(self, text):
+        """Конвертує текст у двійковий формат"""
+        bits = ''
+        for char in text:
+            bits += format(ord(char), '016b')
+        return bits
+    
+    def bits_to_text(self, bits):
+        """Конвертує двійковий формат назад у текст"""
+        text = ''
+        for i in range(0, len(bits), 16):
+            if i + 16 <= len(bits):
+                char_code = int(bits[i:i+16], 2)
+                text += chr(char_code)
+        return text
+    
+    def read_pixels(self, filename):
+        """Читає пікселі з PPM файлу"""
+        with open(filename, 'r') as f:
+            # Пропускаємо заголовок
+            f.readline()  # P3
+            line = f.readline().strip()
+            while line.startswith('#'):
+                line = f.readline().strip()
+            f.readline()  # max val
+            
+            pixels = []
+            for line in f:
+                for val in line.split():
+                    if val:
+                        pixels.append(int(val))
+            return pixels
+    
+    def write_pixels(self, filename, pixels, width=400, height=300):
+        """Записує пікселі у PPM файл"""
+        with open(filename, 'w') as f:
+            f.write("P3\n")
+            f.write(f"{width} {height}\n")
+            f.write("255\n")
+            
+            for i in range(0, len(pixels), 3):
+                f.write(f"{pixels[i]} {pixels[i+1]} {pixels[i+2]} ")
+                if (i // 3) % 5 == 0:
+                    f.write("\n")
+    
+    def hide_message(self, image_path, message, output_path):
+        """Приховує текст у зображенні"""
+        print("\n1. КОНВЕРТАЦІЯ ТЕКСТУ В БІТИ")
+        message_bits = self.text_to_bits(message)
+        
+        # Додаємо довжину повідомлення (16 біт) перед текстом
+        length_bits = format(len(message), '016b')
+        full_message = self.START_MARKER + length_bits + message_bits
+        
+        print(f"   Текст: {message[:50]}...")
+        print(f"   Довжина: {len(message)} символів = {len(message_bits)} біт")
+        print(f"   Всього з маркером: {len(full_message)} біт")
+        
+        print("\n2. ЧИТАННЯ ПІКСЕЛІВ ЗОБРАЖЕННЯ")
+        pixels = self.read_pixels(image_path)
+        print(f"   Всього каналів: {len(pixels)}")
+        
+        print("\n3. ЗАМІНА МОЛОДШИХ БІТІВ")
+        modified = pixels.copy()
+        for i in range(len(full_message)):
+            modified[i] = (pixels[i] & 0xFE) | int(full_message[i])
+        print(f"   Змінено {len(full_message)} біт")
+        
+        print("\n4. ЗБЕРЕЖЕННЯ ЗОБРАЖЕННЯ")
+        self.write_pixels(output_path, modified)
+        print(f"   Збережено як {output_path}")
+        
+        return True
+    
+    def extract_message(self, image_path):
+        """Витягує текст із зображення"""
+        print("\n1. ЧИТАННЯ ПІКСЕЛІВ")
+        pixels = self.read_pixels(image_path)
+        
+        print("2. ЗБІР МОЛОДШИХ БІТІВ")
+        bits = ''
+        for i, p in enumerate(pixels):
+            bits += str(p & 1)
+            if i > 1000 and len(bits) > 100:  # Збираємо достатньо для пошуку маркера
+                pass
+        
+        print("3. ПОШУК МАРКЕРА ПОЧАТКУ")
+        start = bits.find(self.START_MARKER)
+        if start == -1:
+            print("   Маркер не знайдено!")
+            return None
+        print(f"   Маркер знайдено на позиції {start}")
+        
+        print("4. ЧИТАННЯ ДОВЖИНИ")
+        len_start = start + len(self.START_MARKER)
+        length_bits = bits[len_start:len_start + 16]
+        msg_length = int(length_bits, 2)
+        print(f"   Довжина повідомлення: {msg_length} символів")
+        
+        print("5. ВИТЯГУВАННЯ ТЕКСТУ")
+        msg_start = len_start + 16
+        msg_end = msg_start + (msg_length * 16)
+        message_bits = bits[msg_start:msg_end]
+        
+        text = self.bits_to_text(message_bits)
+        print(f"   Витягнуто {len(text)} символів")
+        
+        return text
+
+
+def create_test_image(filename, width=400, height=300):
+    """Створює просте тестове зображення"""
+    with open(filename, 'w') as f:
+        f.write("P3\n")
+        f.write(f"{width} {height}\n")
+        f.write("255\n")
+        
+        for y in range(height):
+            for x in range(width):
+                r = (x * 255) // width
+                g = (y * 255) // height
+                b = 128
+                f.write(f"{r} {g} {b} ")
+            f.write("\n")
+    print(f"Створено зображення: {filename} ({width}x{height})")
+
+
+def main():
+    print("=" * 60)
+    print("СТЕГАНОГРАФІЯ В ЗОБРАЖЕННЯХ")
+    print("=" * 60)
+    
+    # Етап 1: Пояснення
+    print("\n--- ЕТАП 1: ПОЯСНЕННЯ ---")
+    print("Метод LSB (Least Significant Bit):")
+    print("- Кожен піксель має 3 канали (RGB)")
+    print("- Змінюємо тільки останній біт кожного каналу")
+    print("- Людське око не помічає зміни на 1/256")
+    
+    # Етап 3: Персональні дані
+    print("\n--- ЕТАП 3: ПЕРСОНАЛЬНІ ДАНІ ---")
+    name = input("ПІБ: ")
+    group = input("Група: ")
+    birth = input("Дата народження: ")
+    
+    message = f"{name}, {group}, {birth}"
+    print(f"\nПовідомлення: {message}")
+    print(f"Довжина: {len(message)} символів")
+    
+    # Створюємо зображення
+    original = "test.ppm"
+    create_test_image(original)
+    
+    # Етап 2: Приховування
+    print("\n--- ЕТАП 2: ПРИХОВУВАННЯ ---")
+    stego = Steganography()
+    hidden = "hidden.ppm"
+    stego.hide_message(original, message, hidden)
+    
+    # Етап 2: Витягування
+    print("\n--- ЕТАП 2: ВИТЯГУВАННЯ ---")
+    extracted = stego.extract_message(hidden)
+    
+    if extracted:
+        print(f"\nВитягнуто: {extracted}")
+        
+        # Перевірка
+        if extracted == message:
+            print("\n✓ УСПІХ: Повідомлення повністю відновлено!")
+        else:
+            print("\n✗ ПОМИЛКА: Повідомлення відновлено не повністю")
+    else:
+        print("\n✗ Не вдалося витягнути повідомлення")
+    
+    # Етап 4: Аналіз змін
+    print("\n--- ЕТАП 4: АНАЛІЗ ЗМІН ---")
+    orig_size = os.path.getsize(original)
+    hidden_size = os.path.getsize(hidden)
+    
+    print(f"Розмір оригіналу: {orig_size} байт")
+    print(f"Розмір зі змінами: {hidden_size} байт")
+    print(f"Різниця: {hidden_size - orig_size} байт")
+    print("\nВізуально зображення не змінилося!")
+
+
+if __name__ == "__main__":
+    main()

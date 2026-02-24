@@ -1,0 +1,94 @@
+import re
+from datetime import datetime
+
+def analyze_password(password, name, birth_date):
+    """Аналіз пароля на безпеку"""
+    score = 0
+    recommendations = []
+    
+    # Довжина
+    if len(password) < 8:
+        recommendations.append("Пароль має бути мінімум 8 символів")
+    elif len(password) >= 12:
+        score += 2
+        recommendations.append("Довжина пароля хороша")
+    else:
+        score += 1
+        recommendations.append("Довжина пароля прийнятна, але краще 12+ символів")
+    
+    # Символи
+    if re.search(r'[a-z]', password):
+        score += 1
+    else:
+        recommendations.append("Додайте малі літери")
+    
+    if re.search(r'[A-Z]', password):
+        score += 1
+    else:
+        recommendations.append("Додайте великі літери")
+    
+    if re.search(r'\d', password):
+        score += 1
+    else:
+        recommendations.append("Додайте цифри")
+    
+    if re.search(r'[^a-zA-Z0-9]', password):
+        score += 1
+    else:
+        recommendations.append("Додайте спеціальні символи")
+    
+    # Особисті дані
+    password_lower = password.lower()
+    name_lower = name.lower()
+    
+    if name_lower in password_lower:
+        recommendations.append("Не використовуйте ім'я в паролі")
+        score -= 2
+    
+    # Дата народження
+    try:
+        date = datetime.strptime(birth_date, "%d.%m.%Y")
+        year = str(date.year)
+        year_short = str(date.year)[2:]
+        
+        if year in password or year_short in password:
+            recommendations.append("Не використовуйте рік народження в паролі")
+            score -= 2
+    except:
+        pass
+    
+    # Словникові слова
+    common = ['password', 'qwerty', 'admin', '123', 'qwe']
+    for word in common:
+        if word in password_lower:
+            recommendations.append("Уникайте простих слів та послідовностей")
+            score -= 1
+            break
+    
+    score = max(1, min(10, round(score)))
+    return score, recommendations
+
+
+def main():
+    print("АНАЛІЗ БЕЗПЕКИ ПАРОЛІВ")
+    print("-" * 40)
+    
+    # Введення даних
+    name = input("Ім'я: ")
+    birth = input("Дата народження (ДД.ММ.РРРР): ")
+    password = input("Пароль: ")
+    
+    # Аналіз
+    score, recommendations = analyze_password(password, name, birth)
+    
+    # Результат
+    print(f"\nОЦІНКА: {score}/10")
+    print("\nРЕКОМЕНДАЦІЇ:")
+    for rec in recommendations[:5]:
+        print(f"• {rec}")
+    
+    print("\n" + "-" * 40)
+
+
+if __name__ == "__main__":
+    main()

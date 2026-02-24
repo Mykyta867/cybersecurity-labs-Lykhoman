@@ -1,0 +1,130 @@
+import sqlite3
+
+class StudentDatabase:
+    """База даних студентів"""
+    
+    def __init__(self):
+        self.conn = sqlite3.connect(":memory:")
+        self.create_tables()
+        self.fill_data()
+    
+    def create_tables(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE students (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                group_name TEXT,
+                email TEXT,
+                password TEXT
+            )
+        ''')
+        self.conn.commit()
+    
+    def fill_data(self):
+        cursor = self.conn.cursor()
+        students = [
+            (1, "Іван Петренко", "КН-101", "ivan@mail.com", "pass123"),
+            (2, "Марія Коваленко", "КН-101", "maria@mail.com", "qwerty"),
+            (3, "Петро Шевченко", "КН-102", "petro@mail.com", "admin123"),
+            (4, "Микита Лихоман", "6.04.121.010.22.2", "mykyta@mail.com", "secure123")
+        ]
+        cursor.executemany("INSERT INTO students VALUES (?,?,?,?,?)", students)
+        self.conn.commit()
+
+
+class VulnerableApp:
+    """Вразлива версія (SQL-ін'єкції можливі)"""
+    
+    def __init__(self, db):
+        self.db = db
+    
+    def search(self, name):
+        print(f"\nПошук: {name}")
+        cursor = self.db.conn.cursor()
+        query = f"SELECT * FROM students WHERE name = '{name}'"
+        print(f"Запит: {query}")
+        cursor.execute(query)
+        results = cursor.fetchall()
+        for row in results:
+            print(f"Знайдено: {row}")
+        return results
+    
+    def login(self, username, password):
+        print(f"\nВхід: {username} / {password}")
+        cursor = self.db.conn.cursor()
+        query = f"SELECT * FROM students WHERE name = '{username}' AND password = '{password}'"
+        print(f"Запит: {query}")
+        cursor.execute(query)
+        user = cursor.fetchone()
+        if user:
+            print(f"Успішний вхід: {user[1]}")
+        else:
+            print("Невдалий вхід")
+        return user
+
+
+class SecureApp:
+    """Захищена версія (параметризовані запити)"""
+    
+    def __init__(self, db):
+        self.db = db
+    
+    def search(self, name):
+        print(f"\nПошук: {name}")
+        cursor = self.db.conn.cursor()
+        query = "SELECT * FROM students WHERE name = ?"
+        print(f"Запит: {query} з параметром '{name}'")
+        cursor.execute(query, (name,))
+        results = cursor.fetchall()
+        for row in results:
+            print(f"Знайдено: {row}")
+        return results
+    
+    def login(self, username, password):
+        print(f"\nВхід: {username} / {password}")
+        cursor = self.db.conn.cursor()
+        query = "SELECT * FROM students WHERE name = ? AND password = ?"
+        print(f"Запит: {query} з параметрами '{username}', '{password}'")
+        cursor.execute(query, (username, password))
+        user = cursor.fetchone()
+        if user:
+            print(f"Успішний вхід: {user[1]}")
+        else:
+            print("Невдалий вхід")
+        return user
+
+
+def main():
+    print("=" * 60)
+    print("SQL-ІН'ЄКЦІЇ: ДЕМОНСТРАЦІЯ")
+    print("=" * 60)
+    
+    db = StudentDatabase()
+    vulnerable = VulnerableApp(db)
+    secure = SecureApp(db)
+    
+    print("\n--- ПРИКЛАД 1: ЗВИЧАЙНИЙ ПОШУК ---")
+    vulnerable.search("Микита Лихоман")
+    secure.search("Микита Лихоман")
+    
+    print("\n--- ПРИКЛАД 2: SQL-ІН'ЄКЦІЯ (ВИТОК ВСІХ ДАНИХ) ---")
+    injection = "' OR '1'='1' --"
+    print(f"Введено: {injection}")
+    vulnerable.search(injection)
+    secure.search(injection)
+    
+    print("\n--- ПРИКЛАД 3: ОБХІД АВТОРИЗАЦІЇ ---")
+    print(f"Введено: логін = '{injection}', пароль = 'anything'")
+    vulnerable.login(injection, "anything")
+    secure.login(injection, "anything")
+    
+    print("\n" + "=" * 60)
+    print("ВИСНОВКИ:")
+    print("- Вразлива версія дозволяє SQL-ін'єкції")
+    print("- Захищена версія блокує ін'єкції")
+    print("- Параметризовані запити - ефективний захист")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,94 @@
+import hashlib
+
+class DigitalSignature:
+    """Система цифрових підписів"""
+    
+    def __init__(self):
+        self.private_key = None
+        self.public_key = None
+        self.modulus = 1000007
+    
+    def generate_keys(self, personal_data):
+        """Генерація пари ключів на основі персональних даних"""
+        # Приватний ключ з персональних даних
+        key_str = f"{personal_data['name']}{personal_data['birth_date']}{personal_data['secret']}"
+        self.private_key = int(hashlib.sha256(key_str.encode()).hexdigest(), 16) % self.modulus
+        
+        # Публічний ключ = приватний * 7 mod modulus
+        self.public_key = (self.private_key * 7) % self.modulus
+        
+        return self.private_key, self.public_key
+    
+    def hash_document(self, content):
+        """Обчислення хешу документа (обмежений модулем)"""
+        h = int(hashlib.sha256(content.encode()).hexdigest(), 16)
+        return h % self.modulus
+    
+    def sign(self, content):
+        """Створення цифрового підпису (хеш * приватний ключ mod modulus)"""
+        doc_hash = self.hash_document(content)
+        signature = (doc_hash * self.private_key) % self.modulus
+        return signature
+    
+    def verify(self, content, signature):
+        """Перевірка підпису (підпис * обернений до публічного ключа mod modulus)"""
+        doc_hash = self.hash_document(content)
+        
+        # Шукаємо обернений елемент для публічного ключа
+        inv_pub = self.mod_inverse(self.public_key, self.modulus)
+        decrypted = (signature * inv_pub) % self.modulus
+        
+        return doc_hash == decrypted
+    
+    def mod_inverse(self, a, m):
+        """Обернений елемент за модулем m"""
+        for x in range(1, m):
+            if (a * x) % m == 1:
+                return x
+        return 1
+
+
+def main():
+    print("ЦИФРОВИЙ ПІДПИС")
+    print("-" * 40)
+    
+    # 1. Введення персональних даних
+    name = input("ПІБ: ")
+    birth = input("Дата народження: ")
+    secret = input("Секретне слово: ")
+    
+    personal_data = {
+        'name': name,
+        'birth_date': birth,
+        'secret': secret
+    }
+    
+    # 2. Генерація ключів
+    dsa = DigitalSignature()
+    private, public = dsa.generate_keys(personal_data)
+    print(f"\nПриватний ключ: {private}")
+    print(f"Публічний ключ: {public}")
+    
+    # 3. Документ
+    doc = input("\nВведіть текст документа: ")
+    print(f"\nДокумент: {doc}")
+    
+    # 4. Створення підпису
+    signature = dsa.sign(doc)
+    print(f"Підпис: {signature}")
+    
+    # 5. Перевірка оригіналу
+    valid = dsa.verify(doc, signature)
+    print(f"\nПеревірка оригіналу: {'ДІЙСНИЙ' if valid else 'НЕДІЙСНИЙ'}")
+    
+    # 6. Демонстрація підробки
+    print("\n--- Демонстрація підробки ---")
+    modified = doc + " (змінено)"
+    print(f"Змінений документ: {modified}")
+    
+    valid = dsa.verify(modified, signature)
+    print(f"Перевірка зміненого: {'ДІЙСНИЙ' if valid else 'НЕДІЙСНИЙ'}")
+
+
+if __name__ == "__main__":
+    main()

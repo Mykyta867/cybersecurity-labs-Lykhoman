@@ -1,0 +1,141 @@
+class CaesarCipher:
+    """Шифр Цезаря"""
+    
+    def __init__(self, shift):
+        self.shift = shift
+    
+    @staticmethod
+    def generate_key(name, birth_date):
+        """Ключ = сума цифр дати народження"""
+        digits = [int(d) for d in birth_date if d.isdigit()]
+        return sum(digits) % 33
+    
+    def encrypt(self, text):
+        result = ""
+        for char in text:
+            if char.isalpha():
+                if char.islower():
+                    result += chr((ord(char) - ord('а') + self.shift) % 32 + ord('а'))
+                elif char.isupper():
+                    result += chr((ord(char) - ord('А') + self.shift) % 32 + ord('А'))
+                else:
+                    result += char
+            else:
+                result += char
+        return result
+    
+    def decrypt(self, text):
+        self.shift = -self.shift
+        result = self.encrypt(text)
+        self.shift = -self.shift
+        return result
+
+
+class VigenereCipher:
+    """Шифр Віженера"""
+    
+    def __init__(self, key):
+        self.key = key.lower()
+    
+    @staticmethod
+    def generate_key(surname, name):
+        """Ключ = прізвище + ім'я"""
+        return (surname + name).lower()
+    
+    def encrypt(self, text):
+        result = ""
+        key_index = 0
+        
+        for char in text:
+            if char.isalpha():
+                # Визначаємо зсув за ключем
+                key_char = self.key[key_index % len(self.key)]
+                shift = ord(key_char) - ord('a')
+                
+                if char.islower():
+                    result += chr((ord(char) - ord('a') + shift) % 26 + ord('a'))
+                else:
+                    result += chr((ord(char) - ord('A') + shift) % 26 + ord('A'))
+                
+                key_index += 1
+            else:
+                result += char
+        
+        return result
+    
+    def decrypt(self, text):
+        result = ""
+        key_index = 0
+        
+        for char in text:
+            if char.isalpha():
+                key_char = self.key[key_index % len(self.key)]
+                shift = ord(key_char) - ord('a')
+                
+                if char.islower():
+                    result += chr((ord(char) - ord('a') - shift) % 26 + ord('a'))
+                else:
+                    result += chr((ord(char) - ord('A') - shift) % 26 + ord('A'))
+                
+                key_index += 1
+            else:
+                result += char
+        
+        return result
+
+
+def main():
+    print("ПОРІВНЯЛЬНИЙ АНАЛІЗ ШИФРІВ")
+    print("-" * 50)
+    
+    # Введення персональних даних
+    name = input("Ім'я: ")
+    surname = input("Прізвище: ")
+    birth = input("Дата народження (ДД.ММ.РРРР): ")
+    
+    # Генерація ключів
+    caesar_key = CaesarCipher.generate_key(name, birth)
+    vigenere_key = VigenereCipher.generate_key(surname, name)
+    
+    print(f"\nКлюч Цезаря: {caesar_key} (зсув)")
+    print(f"Ключ Віженера: {vigenere_key}")
+    
+    # Введення тексту
+    text = input("\nТекст для шифрування: ")
+    
+    # Шифрування
+    caesar = CaesarCipher(caesar_key)
+    vigenere = VigenereCipher(vigenere_key)
+    
+    caesar_enc = caesar.encrypt(text)
+    vigenere_enc = vigenere.encrypt(text)
+    
+    print(f"\nОригінал: {text}")
+    print(f"Цезар: {caesar_enc}")
+    print(f"Віженер: {vigenere_enc}")
+    
+    # Розшифрування
+    caesar_dec = caesar.decrypt(caesar_enc)
+    vigenere_dec = vigenere.decrypt(vigenere_enc)
+    
+    print(f"\nРозшифровано Цезар: {caesar_dec}")
+    print(f"Розшифровано Віженер: {vigenere_dec}")
+    
+    # Порівняльна таблиця
+    print("\n" + "-" * 50)
+    print("ПОРІВНЯЛЬНА ТАБЛИЦЯ")
+    print("-" * 50)
+    print(f"{'Метод':<10} {'Довжина':<10} {'Ключ':<15}")
+    print("-" * 50)
+    print(f"{'Цезар':<10} {len(caesar_enc):<10} {caesar_key}")
+    print(f"{'Віженер':<10} {len(vigenere_enc):<10} {vigenere_key}")
+    
+    # Висновки
+    print("\nВИСНОВКИ:")
+    print("-" * 50)
+    print("Цезар: простий, але нестійкий (всього 33 варіанти ключа)")
+    print("Віженер: складніший, ключ залежить від довжини тексту")
+
+
+if __name__ == "__main__":
+    main()
